@@ -5,19 +5,34 @@ from os.path import isfile, join
 import re
 import json
 import pickle
+from extractor import Extractor
+import nltk
 
 PATH = "C:/Users/Sneha/Desktop/python/documents"
-WORDS =["record","band","member","single","singer","metal","rock","grammy","platinum","group"]
+stopwordsList = ["my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"]
+
 
 def getFiles():
     onlyfiles = [f for f in listdir(PATH) if isfile(join(PATH, f))]
     return onlyfiles
 
+
+def extractKeywords():
+        keyList = set()
+        fileList = getFiles()
+        for file in fileList:
+                e = Extractor(open(PATH + "/" + file).read())
+                keyList |= set(e.rank_words())
+                bigram = nltk.bigrams(e.rank_words())
+                keyList |= set(map(' '.join, bigram))
+        return keyList    
+
 def createIndex():
 
         inverted = {}
         fileList = getFiles()
-        for word in WORDS:
+        words = extractKeywords()
+        for word in words:
                 for file in fileList:
                         locations = inverted.setdefault(word, [])
                         if checkWord(word, PATH + "/" + file) == True:
@@ -65,9 +80,7 @@ def getIndex():
                 updatedFiles = set(getFiles())
                 if len(updatedFiles - originalFiles) > 0:
                         newFiles = updatedFiles - originalFiles
-                        #print(newFiles)
                         inverted_index = updateIndex(inverted_index, newFiles)
-                        #pprint(inverted_index)
                         writeIndex(inverted_index)
                         writeList(getFiles())
                         return inverted_index
@@ -77,7 +90,7 @@ def getIndex():
 
 
 def updateIndex(inverted_index, newFiles):
-        for word in WORDS:
+        for word in extractKeywords():
                 for file in newFiles:
                         locations = inverted_index.setdefault(word, [])
                         if checkWord(word, PATH + "/" + file) == True:
@@ -98,7 +111,11 @@ def search(query):
                                 result_set = set(getFiles())
                                 result_set -=current_set
                         else:        
-                                result_set = set(inverted_index.get(word)) 
+                                if word not in extractKeywords():
+                                        print("Invalid Keyword " + word )
+                                        break
+                                else:
+                                        result_set = set(inverted_index.get(word)) 
                         continue
                 inverted = False 
                 if word in ['AND','OR']:
@@ -112,6 +129,9 @@ def search(query):
                         realword = word[4:]
                 else:
                         realword = word
+                        if realword not in extractKeywords():
+                                print("Invalid Keyword " + realword )
+                                break 
 
                 if operation is not None:
                         current_set = set(inverted_index.get(realword))
